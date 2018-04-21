@@ -14,6 +14,8 @@ before_install:
 
 addons:
   apt:
+    sources:
+    - keithw/glfw3
     packages:
     - libglfw3-dev
     - libopenal-dev
