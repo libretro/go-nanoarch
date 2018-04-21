@@ -4,8 +4,16 @@ go:
   - "1.8"
   - "1.10.x"
 
+os:
+  - linux
+  - osx
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew update          ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "osx" ]]; then brew install glfw openal; fi
+
 addons:
   apt:
     packages:
-    - libglfw-dev
+    - libglfw3-dev
     - libopenal-dev
