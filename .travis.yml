@@ -8,4 +8,4 @@ addons:
   apt:
     packages:
     - libglfw-dev
-    - openal-dev
+    - libopenal-dev
