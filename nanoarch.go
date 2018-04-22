@@ -284,13 +284,13 @@ func audioInit(rate C.double) {
 
 func audioWrite(data unsafe.Pointer, frames C.size_t) C.size_t {
 
-	s := C.int(frames)
+	size := int32(frames) * 8
 
-	//audio.buffers[0].BufferData(al.FormatStereo16, C.GoBytes(data, 1024*s), audio.rate)
+	audio.buffers[0].BufferData2(al.FormatStereo16, data, size, audio.rate)
 	audio.sources[0].QueueBuffers(audio.buffers[0])
 	al.PlaySources(audio.sources[0])
 
-	return C.size_t(1024 * s)
+	return frames
 }
 
 //export coreAudioSample
