@@ -23,6 +23,7 @@ import (
 #include <stdlib.h>
 #include <stdio.h>
 #include <dlfcn.h>
+#include <string.h>
 
 void bridge_retro_init(void *f);
 void bridge_retro_deinit(void *f);
@@ -64,14 +65,15 @@ var video struct {
 
 var scale = 3.0
 
-const bufSize = 1024
+const bufSize = 1024 * 4
 
 var audio struct {
 	sources    []al.Source
 	buffers    []al.Buffer
 	rate       int32
 	numBuffers uint
-	tmpBuf     [bufSize]C.uint8_t
+	tmpBuf     [bufSize]byte
+	tmpBufPtr  C.size_t
 }
 
 var binds = map[glfw.Key]C.int{
@@ -282,15 +284,47 @@ func audioInit(rate C.double) {
 	audio.buffers = al.GenBuffers(int(audio.numBuffers))
 }
 
-func audioWrite(data unsafe.Pointer, frames C.size_t) C.size_t {
+func min(a, b C.size_t) C.size_t {
+	if a < b {
+		return a
+	}
+	return b
+}
 
-	size := int32(frames) * 8
+func fillInternalBuf(buf unsafe.Pointer, size C.size_t) C.size_t {
+	readSize := min(bufSize-audio.tmpBufPtr, size)
+	//memcpy(audio.tmpBuf+audio.tmpBufPtr, buf, readSize)
+	//C.memcpy(unsafe.Pointer(&audio.tmpBuf[0]), buf, readSize)
+	audio.tmpBufPtr += readSize
+	return readSize
+}
 
-	audio.buffers[0].BufferData2(al.FormatStereo16, data, size, audio.rate)
-	audio.sources[0].QueueBuffers(audio.buffers[0])
-	al.PlaySources(audio.sources[0])
+func audioWrite(buf unsafe.Pointer, size C.size_t) C.size_t {
 
-	return frames
+	written := C.size_t(0)
+
+	for size > 0 {
+
+		rc := fillInternalBuf(buf, size)
+
+		written += rc
+		//buf += rc
+		size -= rc
+
+		if audio.tmpBufPtr != bufSize {
+			break
+		}
+
+		//audio.buffers[0].BufferData(al.FormatStereo16, audio.tmpBuf[:], audio.rate)
+		audio.buffers[0].BufferData(al.FormatStereo16, C.GoBytes(buf, bufSize)[:], audio.rate)
+		audio.tmpBufPtr = 0
+		audio.sources[0].QueueBuffers(audio.buffers[0])
+		al.PlaySources(audio.sources[0])
+	}
+
+	audio.sources[0].UnqueueBuffers(audio.buffers[0])
+
+	return written
 }
 
 //export coreAudioSample
