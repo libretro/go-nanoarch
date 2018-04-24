@@ -74,6 +74,7 @@ var audio struct {
 	numBuffers uint
 	tmpBuf     [bufSize]byte
 	tmpBufPtr  C.size_t
+	bufPtr     C.size_t
 }
 
 var binds = map[glfw.Key]C.int{
@@ -294,13 +295,12 @@ func min(a, b C.size_t) C.size_t {
 func fillInternalBuf(buf unsafe.Pointer, size C.size_t) C.size_t {
 	readSize := min(bufSize-audio.tmpBufPtr, size)
 	//memcpy(audio.tmpBuf+audio.tmpBufPtr, buf, readSize)
-	//C.memcpy(unsafe.Pointer(&audio.tmpBuf[0]), buf, readSize)
+	copy(audio.tmpBuf[audio.tmpBufPtr:], C.GoBytes(buf, bufSize)[audio.bufPtr:audio.bufPtr+readSize])
 	audio.tmpBufPtr += readSize
 	return readSize
 }
 
 func audioWrite(buf unsafe.Pointer, size C.size_t) C.size_t {
-
 	written := C.size_t(0)
 
 	for size > 0 {
@@ -308,21 +308,21 @@ func audioWrite(buf unsafe.Pointer, size C.size_t) C.size_t {
 		rc := fillInternalBuf(buf, size)
 
 		written += rc
-		//buf += rc
+		audio.bufPtr += rc //buf += rc
 		size -= rc
 
 		if audio.tmpBufPtr != bufSize {
 			break
 		}
 
-		//audio.buffers[0].BufferData(al.FormatStereo16, audio.tmpBuf[:], audio.rate)
-		audio.buffers[0].BufferData(al.FormatStereo16, C.GoBytes(buf, bufSize)[:], audio.rate)
+		audio.buffers[0].BufferData(al.FormatStereo16, audio.tmpBuf[:], audio.rate)
 		audio.tmpBufPtr = 0
 		audio.sources[0].QueueBuffers(audio.buffers[0])
 		al.PlaySources(audio.sources[0])
 	}
 
 	audio.sources[0].UnqueueBuffers(audio.buffers[0])
+	audio.bufPtr = 0
 
 	return written
 }
