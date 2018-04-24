@@ -204,10 +204,8 @@ func videoConfigure(geom *C.struct_retro_game_geometry) {
 	}
 	video.texID = 0
 
-	if video.pixFmt != 0 {
-		// FIXME default should be UNSIGNED_SHORT_5_5_5_1
-		//video.pixFmt = gl.UNSIGNED_SHORT_5_5_5_1
-		video.pixFmt = gl.UNSIGNED_INT_8_8_8_8_REV
+	if video.pixFmt == 0 {
+		video.pixFmt = gl.UNSIGNED_SHORT_5_5_5_1
 	}
 
 	gl.GenTextures(1, &video.texID)
