@@ -60,6 +60,10 @@ var video struct {
 	vao     uint32
 	texID   uint32
 	pitch   uint32
+
+	texWidth, texHeight   int
+	clipWidth, clipHeight int
+
 	pixFmt  uint32
 	pixType uint32
 	bpp     uint32
@@ -123,16 +127,25 @@ func videoSetPixelFormat(format uint32) C.bool {
 	return true
 }
 
-// func refreshVertexData() {
-// 	assert(g_video.tex_w)
-// 	assert(g_video.tex_h)
-// 	assert(g_video.clip_w)
-// 	assert(g_video.clip_h)
+func refreshVertexData() {
+	vertices[10] = float32(video.clipWidth) / float32(video.texWidth)
+	vertices[14] = float32(video.clipWidth) / float32(video.texWidth)
+	vertices[3] = float32(video.clipHeight) / float32(video.texHeight)
+	vertices[11] = float32(video.clipHeight) / float32(video.texHeight)
 
-// 	GLfloat *coords = g_texcoords;
-// 	coords[1] = coords[5] = (float)g_video.clip_h / g_video.tex_h;
-// 	coords[4] = coords[6] = (float)g_video.clip_w / g_video.tex_w;
-// }
+	var vbo uint32
+	gl.GenBuffers(1, &vbo)
+	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4, gl.Ptr(vertices), gl.STATIC_DRAW)
+
+	vertAttrib := uint32(gl.GetAttribLocation(video.program, gl.Str("vert\x00")))
+	gl.EnableVertexAttribArray(vertAttrib)
+	gl.VertexAttribPointer(vertAttrib, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
+
+	texCoordAttrib := uint32(gl.GetAttribLocation(video.program, gl.Str("vertTexCoord\x00")))
+	gl.EnableVertexAttribArray(texCoordAttrib)
+	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
+}
 
 // //func resizeCallback(window *glfw.Window, w int, h int) {
 // func refreshFBSize(window *glfw.Window) {
@@ -182,18 +195,7 @@ func createWindow(width int, height int) {
 	gl.GenVertexArrays(1, &video.vao)
 	gl.BindVertexArray(video.vao)
 
-	var vbo uint32
-	gl.GenBuffers(1, &vbo)
-	gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-	gl.BufferData(gl.ARRAY_BUFFER, len(vertices)*4, gl.Ptr(vertices), gl.STATIC_DRAW)
-
-	vertAttrib := uint32(gl.GetAttribLocation(video.program, gl.Str("vert\x00")))
-	gl.EnableVertexAttribArray(vertAttrib)
-	gl.VertexAttribPointer(vertAttrib, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(0))
-
-	texCoordAttrib := uint32(gl.GetAttribLocation(video.program, gl.Str("vertTexCoord\x00")))
-	gl.EnableVertexAttribArray(texCoordAttrib)
-	gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 4*4, gl.PtrOffset(2*4))
+	refreshVertexData()
 
 	//refreshFBSize(window)
 }
@@ -252,10 +254,29 @@ func videoConfigure(geom *C.struct_retro_game_geometry) {
 	gl.TexImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, int32(geom.base_width), int32(geom.base_height), 0, video.pixType, video.pixFmt, nil)
 
 	gl.BindTexture(gl.TEXTURE_2D, 0)
+
+	video.texWidth = int(geom.max_width)
+	video.texHeight = int(geom.max_height)
+	video.clipWidth = int(geom.base_width)
+	video.clipHeight = int(geom.base_height)
+
+	fmt.Println(video)
+
+	refreshVertexData()
 }
 
 //export coreVideoRefresh
 func coreVideoRefresh(data unsafe.Pointer, width C.unsigned, height C.unsigned, pitch C.size_t) {
+
+	if video.clipWidth != int(width) || video.clipHeight != int(height) {
+		video.clipHeight = int(height)
+		video.clipWidth = int(width)
+
+		fmt.Println("Upgrade to:", width, height)
+
+		refreshVertexData()
+	}
+
 	gl.BindTexture(gl.TEXTURE_2D, video.texID)
 
 	if uint32(pitch) != video.pitch {
