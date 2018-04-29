@@ -62,6 +62,14 @@ void bridge_retro_run(void *f) {
 	return ((void (*)(void))f)();
 }
 
+void bridge_retro_audio_set_state(void *f, bool state) {
+	((void (*)(bool))f)(state);
+}
+
+void bridge_retro_audio_callback(void *f) {
+	((void (*)(void))f)();
+}
+
 bool coreEnvironment_cgo(unsigned cmd, void *data) {
 	bool coreEnvironment(unsigned, void*);
 	return coreEnvironment(cmd, data);

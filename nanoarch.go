@@ -41,6 +41,8 @@ void bridge_retro_set_audio_sample_batch(void *f, void *callback);
 bool bridge_retro_load_game(void *f, struct retro_game_info *gi);
 void bridge_retro_unload_game(void *f);
 void bridge_retro_run(void *f);
+void bridge_retro_audio_set_state(void *f, bool state);
+void bridge_retro_audio_callback(void *f);
 
 bool coreEnvironment_cgo(unsigned cmd, void *data);
 void coreVideoRefresh_cgo(void *data, unsigned width, unsigned height, size_t pitch);
@@ -292,8 +294,8 @@ func audioInit(rate C.double) {
 	audio.buffers = al.GenBuffers(int(audio.numBuffers))
 	audio.resPtr = audio.numBuffers
 
-	if retroAudioSetStateCallback {
-		retroAudioSetStateCallback(true)
+	if audioCb != nil {
+		C.bridge_retro_audio_set_state(unsafe.Pointer(audioCb.set_state), C.bool(true))
 	}
 }
 
@@ -414,9 +416,7 @@ func coreEnvironment(cmd C.unsigned, data unsafe.Pointer) C.bool {
 		*bval = C.bool(true)
 		break
 	case C.RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK:
-		audio_cb := (*C.struct_retro_audio_callback)(data)
-		retroAudioCallback = audio_cb.callback
-		retroAudioSetStateCallback = audio_cb.set_state
+		audioCb = (*C.struct_retro_audio_callback)(data)
 		break
 	case C.RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
 		format := (*C.enum_retro_pixel_format)(data)
@@ -457,13 +457,12 @@ var retroSetEnvironment unsafe.Pointer
 var retroSetVideoRefresh unsafe.Pointer
 var retroSetInputPoll unsafe.Pointer
 var retroSetInputState unsafe.Pointer
-var retroAudioCallback unsafe.Pointer
-var retroAudioSetStateCallback unsafe.Pointer
 var retroSetAudioSample unsafe.Pointer
 var retroSetAudioSampleBatch unsafe.Pointer
 var retroRun unsafe.Pointer
 var retroLoadGame unsafe.Pointer
 var retroUnloadGame unsafe.Pointer
+var audioCb *C.struct_retro_audio_callback
 
 func coreLoad(sofile string) {
 
@@ -599,8 +598,8 @@ func main() {
 
 	for !window.ShouldClose() {
 		// Ask the core to emit audio.
-		if retroAudioCallback {
-			retroAudioCallback()
+		if audioCb.callback != nil {
+			C.bridge_retro_audio_callback(unsafe.Pointer(audioCb.callback))
 		}
 
 		glfw.PollEvents()
