@@ -598,7 +598,7 @@ func main() {
 
 	for !window.ShouldClose() {
 		// Ask the core to emit audio.
-		if audioCb.callback != nil {
+		if audioCb != nil {
 			C.bridge_retro_audio_callback(unsafe.Pointer(audioCb.callback))
 		}
 
